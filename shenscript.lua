@@ -2,7 +2,7 @@
 
 memory.usememorydomain("RAM")
 --	You can edit any of these variables to be a 0 or 1 depending on what you want
-local gamestate = 0
+local gamestate = 1
 --0 is normal, 1 is training for variable gamestate
 local viewhitboxes = 0
 local restorehealth = 0
