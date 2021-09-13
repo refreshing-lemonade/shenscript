@@ -1,6 +1,6 @@
 # ShenScript
 
-ShenScript is a lua script that effectively creates an improved training mode for the Famicom game Joy Mech Fight (1993).
+ShenScript is a lua script that effectively creates an improved training mode for the Famicom game Joy Mech Fight (1993). Intended for use with BizHawk emulator.
 
 ## Features
 
