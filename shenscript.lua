@@ -4,7 +4,7 @@ memory.usememorydomain("RAM")
 --	You can edit any of these variables to be a 0 or 1 depending on what you want
 local gamestate = 1
 --0 is normal, 1 is training for variable gamestate
-local viewhitboxes = 0
+local viewhitboxes = 1
 local restorehealth = 0
 local stunonnext = 0
 local dummyalwaysact = 0
@@ -27,6 +27,8 @@ local p1statecopy = 0
 local p2statecopy = 0
 local temp = 0
 local viewerselection = 0
+local blockstun = 0
+local blockstun2 = 0
 
 local function hitboxviewer()
 --hitbox viewer
@@ -89,7 +91,7 @@ local function hitboxviewer()
 			memory.writebyte(0x051D, viewerselection)
 	end
 	
-	if memory.readbyte(0x00D9) == 0 then gui.text(25,245,"You are viewing action state " .. viewerselection) end
+	if memory.readbyte(0x00D9) == 0 then gui.text(25,95,"You are viewing action state " .. viewerselection) end
 	
 end
 
@@ -178,6 +180,7 @@ local function commonfunctions()
 			end
 		end
 		if stunonnext == 2 then
+			memory.writebyte(0x052B,0)
 			memory.writebyte(0x062B,0)
 		end
 	end	
@@ -187,32 +190,38 @@ local function commonfunctions()
 	
 	--Dummy/reversal
 		if memory.readbyte(0x00D9) == 62 then
-			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 15 and viewerselection > 0 then
+			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 15 and viewerselection > 3 then
 				memory.writebyte(0x061D,viewerselection)
 			end
-			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 16 and viewerselection > 0 then
+			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 16 and viewerselection > 3 then
 				memory.writebyte(0x061D,viewerselection)
 			end
-			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 3 and viewerselection > 0 and viewerselection ~= 15 then
+			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 3 and viewerselection > 3 and viewerselection ~= 15 then
 				memory.writebyte(0x061D,viewerselection)
 			end
-			if p2state == 0 and memory.readbyte(0x0624) == 0 and dummyalwaysact == 1 and viewerselection > 0 then
+			if p2state == 0 and memory.readbyte(0x0624) == 0 and dummyalwaysact == 1 and viewerselection > 3 then
 				memory.writebyte(0x061D,viewerselection)
+			end
+			
+			if p2state == 0 and viewerselection == -1 and dummyalwaysact == 0 and lastp2state > 14 then
+				if memory.readbyte(0x00f6) ~= 130 and memory.readbyte(0x0624) < 2 then
+				joypad.set({Left=true, A=true}, 2)
+				end
 			end
 			if p2state == 0 and memory.readbyte(0x0624) == 0 and dummyalwaysact == 1 and viewerselection == -1 then
 				if memory.readbyte(0x00f6) ~= 130 and memory.readbyte(0x0624) < 2 then
 				joypad.set({Left=true, A=true}, 2)
 				end
 			end
-			if lastp2state ~= 15 and viewerselection == 15 then
+			if viewerselection == 15 then
 				joypad.set({Down=true}, 2)
 			end
-			if p2state == 3 and viewerselection == 3 then
+			if viewerselection == 3 and dummyalwaysact == 1 then
 				joypad.set({Up=true}, 2)
 			end
-			if p2state == 0 and viewerselection == -1 and dummyalwaysact == 0 and lastp2state > 14 then
-				if memory.readbyte(0x00f6) ~= 130 and memory.readbyte(0x0624) < 2 then
-				joypad.set({Left=true, A=true}, 2)
+			if p2state == 0 and lastp2state > 14 and viewerselection == 3 and memory.readbyte(0x0624) == 0 and dummyalwaysact == 0 then
+				if memory.readbyte(0x00f6) ~= 8 and memory.readbyte(0x0624) < 2 then
+				joypad.set({Up=true}, 2)
 				end
 			end
 		end
@@ -225,10 +234,36 @@ local function commonfunctions()
 		if dummyalwaysact == 0 then gui.text(40,215,"Reversal Only: Yes") end
 	
 	--Restore health
-	if restorehealth == 0 then gui.text(25,230,"Restore Health: OFF")
+	if restorehealth == 0 then
+		gui.text(25,230,"Restore Health: OFF")
+		--Display health values
+		temp = memory.readbyte(0x0529)
+		gui.text(40,245,"Player 1 HP: " .. temp)
+		temp = memory.readbyte(0x0629)
+		gui.text(40,260,"Player 2 HP: " .. temp)
 		end
 		if restorehealth == 1 then gui.text(25,230,"Restore Health: ON")
-		end	
+	end
+		
+	if stunonnext < 2 then
+		--Display stun values
+		temp = memory.readbyte(0x052B)
+		gui.text(40,275,"Player 1 Stun: " .. temp)
+		temp = memory.readbyte(0x062B)
+		gui.text(40,290,"Player 2 Stun: " .. temp)
+		end
+		if restorehealth == 1 then gui.text(25,230,"Restore Health: ON")
+	end	
+	
+	--Blockstun
+	temp = memory.readbyte(0x0624)
+	gui.text(25,305,"Blockstun/Hitstun: " .. temp)
+	if 15 <= memory.readbyte(0x061C) and temp ~= blockstun - 1 and blockstun > 0 then blockstun2 = blockstun end
+	gui.text(40,320,"Previous: " .. blockstun2)
+	blockstun = temp
+	
+	--Stop timer
+		memory.writebyte(0x0042, 59)
 	
 	--Hitbox viewer
 		if viewhitboxes == 0 then gui.text(25,185,"Hitbox Visualizer: OFF")
