@@ -4,7 +4,7 @@ ShenScript is a lua script that effectively creates an improved training mode fo
 
 ## Features
 
-ShenScript includes features such as: Frame advantage timer, invincibility and damage scaling display, hitbox visualizer, toggles for health and stun, and a proper training dummy.
+ShenScript includes features such as: Frame advantage timer, invincibility and damage scaling display, hitbox visualizer, view and toggle health and stun, view blockstun/hitstun and a proper training dummy.
 
 ## Usage
 
