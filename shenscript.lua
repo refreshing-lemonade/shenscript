@@ -4,8 +4,8 @@ memory.usememorydomain("RAM")
 --	You can edit any of these variables to be a 0 or 1 depending on what you want
 local gamestate = 1
 --0 is normal, 1 is training for variable gamestate
-local viewhitboxes = 1
-local restorehealth = 0
+local viewhitboxes = 0
+local restorehealth = 1
 local stunonnext = 0
 local dummyalwaysact = 0
 --	end of variables you could change
@@ -29,6 +29,16 @@ local temp = 0
 local viewerselection = 0
 local blockstun = 0
 local blockstun2 = 0
+local a_effective = {1, 2, 3}
+local lock = false
+local buttons = {}
+local record_inputs = {}
+for i=1, 3 do
+	record_inputs[i] = 0 end
+record_inputs[1] = 255
+local record_frame = 0
+local play_frame = 0
+local length_frame = 0
 
 local function hitboxviewer()
 --hitbox viewer
@@ -107,9 +117,11 @@ local function commonfunctions()
 	p1actionable = false
 	p2actionable = false
 	if p1state < 4 then p1actionable = true end
-	if p1state == 15 and memory.readbyte(0x0524) == 0 then p1actionable = true end
+	if p1state == 15 and memory.readbyte(0x0524) == 0 then p1actionable = true
+	elseif p1state == 3 and lastp1state == 16 then p1actionable = false end
 	if p2state < 4 then p2actionable = true end
-	if p2state == 15 and memory.readbyte(0x0624) == 0 then p2actionable = true end
+	if p2state == 15 and memory.readbyte(0x0624) == 0 then p2actionable = true
+	elseif p2state == 3 and lastp2state == 16 then p2actionable = false end
 	
 	
 --ALL
@@ -135,11 +147,11 @@ local function commonfunctions()
 		
 		if p1controller == 1 then
 			viewerselection = viewerselection + 1
-			if viewerselection > 15 then viewerselection = -1 end
+			if viewerselection > 15 then viewerselection = -4 end
 		end
 		if p1controller == 2 then
 			viewerselection = viewerselection - 1
-			if viewerselection < -1 then viewerselection = 15 end
+			if viewerselection < -4 then viewerselection = 15 end
 		end
 		if p1controller == 4 then
 			dummyalwaysact = dummyalwaysact + 1
@@ -166,9 +178,9 @@ local function commonfunctions()
 		gui.text(50,30,"Training Setting: TRIALS")
 	end
 	
-	
-	
-	if gamestate ~= 0 then
+	if gamestate == 0 then
+		gui.text(50,60,"    Controls:\nA: Toggle hitboxes. B: Stun settings. Up: Max HP. Down: Reversal setting. \nLeft/Right: P2 action state.")
+	else
 		if restorehealth == 1 then
 		memory.writebyte(0x0529, 88)
 		memory.writebyte(0x0629, 88)
@@ -196,6 +208,7 @@ local function commonfunctions()
 			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 16 and viewerselection > 3 then
 				memory.writebyte(0x061D,viewerselection)
 			end
+			
 			if p2state == 0 and memory.readbyte(0x0624) == 0 and lastp2state == 3 and viewerselection > 3 and viewerselection ~= 15 then
 				memory.writebyte(0x061D,viewerselection)
 			end
@@ -224,14 +237,43 @@ local function commonfunctions()
 				joypad.set({Up=true}, 2)
 				end
 			end
+			--recording
+			if viewerselection == -2 then
+				play_frame = 0
+				temp = joypad.get(2)
+				record_inputs[record_frame] = temp
+				record_frame = record_frame + 1
+			end
+			--playback
+			if (viewerselection == -3 or viewerselection == -4) and (dummyalwaysact == 1 or (dummyalwaysact == 0 and (p2actionable or (not p2actionable and play_frame > 0)))) then
+				if record_inputs[play_frame + 1] ~= 255 then
+					joypad.set(record_inputs[play_frame], 2)
+					play_frame = play_frame + 1
+				else
+				play_frame = 0
+				if viewerselection == -3 then viewerselection = 0 end
+				end
+			end
+			
+		else
+			play_frame = 0
+			if record_frame > 0 and (viewerselection == -3 or viewerselection == -4) then
+				record_inputs[record_frame + 1] = 255
+				length_frame = record_frame
+				record_frame = 0
+			end
 		end
 		
+		gui.text(25,430,"Playback: " .. play_frame .. " / " .. length_frame)
 		
-		if viewerselection ~= 0 then gui.text(25,200,"Dummy state: " .. viewerselection) end
-		if viewerselection == 0 then gui.text(25,200,"Dummy state: Player") end
-		if viewerselection == -1 then gui.text(25,200,"Dummy state: Throw") end
-		if dummyalwaysact == 1 then gui.text(40,215,"Reversal Only: No") end
-		if dummyalwaysact == 0 then gui.text(40,215,"Reversal Only: Yes") end
+		if viewerselection == 0 then gui.text(25,200,"Dummy state: Player")
+		elseif viewerselection == -1 then gui.text(25,200,"Dummy state: Throw")
+		elseif viewerselection == -2 then gui.text(25,200,"Dummy state: RECORDING")
+		elseif viewerselection == -3 then gui.text(25,200,"Dummy state: PLAYBACK")
+		elseif viewerselection == -4 then gui.text(25,200,"Dummy state: PLAYBACK (loop)")
+		elseif viewerselection ~= 0 then gui.text(25,200,"Dummy state: " .. viewerselection) end
+		if dummyalwaysact == 1 then gui.text(40,215,"Reversal only: No")
+		elseif dummyalwaysact == 0 then gui.text(40,215,"Reversal only: Yes") end
 	
 	--Restore health
 	if restorehealth == 0 then
@@ -241,16 +283,15 @@ local function commonfunctions()
 		gui.text(40,245,"Player 1 HP: " .. temp)
 		temp = memory.readbyte(0x0629)
 		gui.text(40,260,"Player 2 HP: " .. temp)
-		end
-		if restorehealth == 1 then gui.text(25,230,"Restore Health: ON")
+	elseif restorehealth == 1 then gui.text(25,230,"Restore Health: ON")
 	end
 		
+	--Display stun values
 	if stunonnext < 2 then
-		--Display stun values
 		temp = memory.readbyte(0x052B)
-		gui.text(40,275,"Player 1 Stun: " .. temp)
+		gui.text(40,275,"P1 Stun: " .. temp)
 		temp = memory.readbyte(0x062B)
-		gui.text(40,290,"Player 2 Stun: " .. temp)
+		gui.text(40,290,"P2 Stun: " .. temp)
 		end
 		if restorehealth == 1 then gui.text(25,230,"Restore Health: ON")
 	end	
@@ -260,51 +301,74 @@ local function commonfunctions()
 	gui.text(25,305,"Blockstun/Hitstun: " .. temp)
 	if 15 <= memory.readbyte(0x061C) and temp ~= blockstun - 1 and blockstun > 0 then blockstun2 = blockstun end
 	gui.text(40,320,"Previous: " .. blockstun2)
+	
+	--Effective Stun
+	temp = memory.readbyte(0x0624)
+	
+	if memory.readbyte(0x062A) > 0 and lock == false then --if applied damage are nonzero
+		a_effective[1] = memory.readbyte(0x062B)
+		a_effective[3] = 0
+		lock = true
+	elseif p1actionable == true and memory.readbyte(0x0624) == 0 and lock == true then
+		a_effective[2] = memory.readbyte(0x062B)
+		lock = false
+		a_effective[3] = a_effective[2] - a_effective[1]
+		a_effective[2] = 0
+		a_effective[1] = 0
+	end
+	
+	if stunonnext < 2 then
+		gui.text(25,335,"Effective stun: " .. a_effective[3])
+	end
+	
 	blockstun = temp
 	
-	--Stop timer
+	--Charge and motion inputs
+	
+	gui.text(25,350,"P1 Back Charge: " .. memory.readbyte(0x05A2))
+	gui.text(25,365,"P1 Down Charge: " .. memory.readbyte(0x05A3))
+	gui.text(40,380,"   [" .. memory.readbyte(0x05A4) .. "]\n[" .. memory.readbyte(0x05A6) .. "]\n   [" .. memory.readbyte(0x05A5) .. "]")
+	gui.text(65,380,"\n   [" .. memory.readbyte(0x05A7) .. "]")
+	
+	--Stop JMF CE timer
 		memory.writebyte(0x0042, 59)
 	
 	--Hitbox viewer
 		if viewhitboxes == 0 then gui.text(25,185,"Hitbox Visualizer: OFF")
+		elseif viewhitboxes == 1 then gui.text(25,185,"Hitbox Visualizer: ON")
+		hitboxviewer()
 		end
-		if viewhitboxes == 1 then gui.text(25,185,"Hitbox Visualizer: ON")
-		end	
-		if viewhitboxes == 1 then hitboxviewer() end
 		
-	--invincibility status
-		if memory.readbyte(0x0527) == 1 then gui.text(25,110,"P1 Invincible: True") end
-		if memory.readbyte(0x0527) == 0 then gui.text(25,110,"P1 Invincible: False") end
-		if memory.readbyte(0x0627) == 1 then gui.text(25,125,"P2 Invincible: True") end
-		if memory.readbyte(0x0627) == 0 then gui.text(25,125,"P2 Invincible: False") end
+	--Invincibility status
+		if memory.readbyte(0x0527) == 1 then gui.text(25,110,"P1 Invincible: True")
+		elseif memory.readbyte(0x0527) == 0 then gui.text(25,110,"P1 Invincible: False") end
+		if memory.readbyte(0x0627) == 1 then gui.text(25,125,"P2 Invincible: True")
+		elseif memory.readbyte(0x0627) == 0 then gui.text(25,125,"P2 Invincible: False") end
 	
 	--Stun
 			--only applies to player 2, player 1 is always normal
 		if stunonnext == 0 then
 			gui.text(25,170,"Stun: Normal")
-		end
-		if stunonnext == 1 and stunonnextbit == true then
+		elseif stunonnext == 1 and stunonnextbit == true then
 			gui.text(25,170,"Stun: Next Hit (true)")
-		end
-		if stunonnext == 1 and stunonnextbit == false then
+		elseif stunonnext == 1 and stunonnextbit == false then
 			gui.text(25,170,"Stun: Next Hit (false)")
-		end
-		if stunonnext == 2 then
+		elseif stunonnext == 2 then
 			gui.text(25,170,"Stun: None")
 		end
 		
 	--Scaling Level
 		temp = memory.readbyte(0x0629)
-		if temp >= 48 then gui.text(25,140,"P1 Scaling Level: 0") end
-		if temp <= 47 and temp > 31 then gui.text(25,140,"P1 Scaling Level: 1") end
-		if temp <= 31 and temp > 15 then gui.text(25,140,"P1 Scaling Level: 2") end
-		if temp <= 15 then gui.text(25,140,"P1 Scaling Level: 3") end
+		if temp >= 48 then gui.text(25,140,"P1 Scaling Level: 0")
+		elseif temp <= 47 and temp > 31 then gui.text(25,140,"P1 Scaling Level: 1")
+		elseif temp <= 31 and temp > 15 then gui.text(25,140,"P1 Scaling Level: 2")
+		else gui.text(25,140,"P1 Scaling Level: 3") end
 		
 		temp = memory.readbyte(0x0529)
-		if temp >= 48 then gui.text(25,155,"P2 Scaling Level: 0") end
-		if temp <= 47 and temp > 31 then gui.text(25,155,"P2 Scaling Level: 1") end
-		if temp <= 31 and temp > 15 then gui.text(25,155,"P2 Scaling Level: 2") end
-		if temp <= 15 then gui.text(25,155,"P2 Scaling Level: 3") end
+		if temp >= 48 then gui.text(25,155,"P2 Scaling Level: 0")
+		elseif temp <= 47 and temp > 31 then gui.text(25,155,"P2 Scaling Level: 1")
+		elseif temp <= 31 and temp > 15 then gui.text(25,155,"P2 Scaling Level: 2")
+		else gui.text(25,155,"P2 Scaling Level: 3") end
 	
 	--Frame Advantage
 		--on hit/whiff
@@ -379,7 +443,6 @@ local function commonfunctions()
 			if frameadv < 0 then frameadv = 0 end
 			frameadv = frameadv + 1
 		end
-		--extra
 		
 		
 		--conditions to finalize frame advantage
@@ -404,16 +467,14 @@ local function commonfunctions()
 			frameadv = 0
 		end
 		
-		
-		
-		gui.text(25,80,"Player 1 frame advantage: " .. frameadv2)
+		gui.text(25,80,"P1 frame advantage: " .. frameadv2)
 		if memory.readbyte(0x00D9) == 58 and frameadv ~= 0 then
 		gui.text(25,95,"Current frame advantage innacurate since you paused")
 		end
 		
 	end
 	
---trial mode
+--character trial mode
 	if memory.readbyte(0x00D9) == 58 then
 		playerchar = "none"
 		combo = 0
@@ -430,10 +491,14 @@ local function commonfunctions()
 end
 
 local function trials()
+	--ashu loops, wai loops
+end
+
+local function chartrials()
 	if playerchar == "none"	then
 		--gui.text(25,50,"Select a trial")
 	end
-	--kaen trials
+	--blaze trials
 	if playerchar == "blaze" then
 		if trialnumber == 1 then
 		gui.text(25,50,"Trial 1\nJump Kick (Blocked)\nThrow")
@@ -466,6 +531,7 @@ end
 while true do
 	memory.usememorydomain("RAM")
 	commonfunctions()
-	--trials() This is a work in progress
+	if gamestate == 2 then trials() end
+	--chartrials() --This is a work in progress
 	emu.frameadvance()
 end
