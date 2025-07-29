@@ -8,6 +8,8 @@ ShenScript includes features such as: Frame advantage timer, invincibility and d
 
 ## Usage
 
+Load shenscript.lua into Bizhawk emulator in Tools > Lua Console
+
 To enable training mode, either edit the lua file where specified or go into a regular match and press SELECT on the pause menu. While in training mode you can toggle different features on and off.
  - A - Toggle hitbox display
  - B - Change stun behavior
